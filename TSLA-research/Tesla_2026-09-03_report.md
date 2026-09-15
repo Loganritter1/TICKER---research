@@ -2,6 +2,8 @@
 
 **As of January 29, 2026 | Fiscal year ended December 31, 2025 | USD millions except per-share data**
 
+**Disclaimer**  I am not a licensed financial professional. This document is for educational purposes only and is not investment advice.
+
 ## Investment view: Watch / defer
 
 Tesla enters 2026 with an unusually strong liquidity position and a rapidly expanding energy-storage business, but its largest business—automotive—lost revenue, volume and margin in 2025. The company remains financially capable of funding significant investment in manufacturing, artificial intelligence (AI), autonomy and infrastructure. The central question for an investor is whether those investments will produce durable economic returns before continued pressure in the automotive franchise erodes the benefit of the balance sheet.

@@ -1,5 +1,7 @@
 """Comparable-company P/E calculator using the Lab 07 frozen Asbury inputs."""
 
+**Disclaimer**  I am not a licensed financial professional. This document is for educational purposes only and is not investment advice.
+
 from statistics import median
 
 

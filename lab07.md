@@ -2,6 +2,8 @@
 
 ## P/E in plain language
 
+**Disclaimer** I am not a licensed financial professional. This lab work is for educational purposes only and is not investment advice.
+
 Price-to-earnings (P/E) is a share price divided by earnings per share (EPS). Price per share is the market's current price for one common share. Diluted EPS is the period's GAAP profit available to common shareholders divided by diluted weighted-average shares; it includes the potential dilution from instruments such as options. A P/E multiple says how many dollars investors currently pay for one dollar of that year's earnings.
 
 P/E makes earnings comparable on a per-share basis, so it can compare companies with very different sizes. It adds a market-based cross-check to a DCF: the DCF asks what the company's own forecast cash flows are worth, while P/E asks what investors are paying for similar companies' earnings. It does not replace the DCF.

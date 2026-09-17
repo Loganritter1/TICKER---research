@@ -10,7 +10,7 @@ I reran the saved Asbury training calculator before changing cases:
 python TSLA-research\asbury_pe_comps.py
 ```
 
-The Asbury two-peer median-implied Tesla price was $231.00. For each peer, divide its closing price by its annual GAAP diluted EPS to calculate its P/E multiple, then multiply that multiple by Tesla’s annual GAAP diluted EPS. Take the median of the two implied per-share prices. Do not add cash or subtract debt, since P/E is already an equity per-share valuation metric.
+The Asbury two-peer median-implied price was $231.00. For each peer, divide its closing price by its annual GAAP diluted EPS to calculate its P/E multiple, then multiply that multiple by Asbury's annual GAAP diluted EPS. Take the median of the two implied per-share prices. Do not add cash or subtract debt, since P/E is already an equity per-share valuation metric.
 
 ## Define / discover
 

@@ -13,6 +13,37 @@ VALUATION_DATE = "2026-09-30"
 MARKET_PRICE = 354.81
 YEARS = [2026, 2027, 2028, 2029, 2030]
 
+# Frozen September 30, 2026 market inputs. The share figure is FY2025 diluted
+# weighted-average shares, deliberately used as a valuation convention rather
+# than represented as a September 30 spot share count.
+WACC_INPUTS = {
+    "risk_free_rate": 0.0529,
+    "beta": 1.85,
+    "equity_risk_premium": 0.0500,
+    "pre_tax_cost_of_debt": 0.0400,
+    "tax_rate": 0.27,
+    "market_price": MARKET_PRICE,
+    "diluted_shares": 3_528.0,
+    "debt_and_finance_leases": 8_376.0,
+}
+WACC_INPUTS["cost_of_equity"] = (
+    WACC_INPUTS["risk_free_rate"]
+    + WACC_INPUTS["beta"] * WACC_INPUTS["equity_risk_premium"]
+)
+WACC_INPUTS["market_capitalization"] = (
+    WACC_INPUTS["market_price"] * WACC_INPUTS["diluted_shares"]
+)
+WACC_INPUTS["equity_weight"] = WACC_INPUTS["market_capitalization"] / (
+    WACC_INPUTS["market_capitalization"] + WACC_INPUTS["debt_and_finance_leases"]
+)
+WACC_INPUTS["debt_weight"] = 1 - WACC_INPUTS["equity_weight"]
+WACC_INPUTS["wacc"] = (
+    WACC_INPUTS["equity_weight"] * WACC_INPUTS["cost_of_equity"]
+    + WACC_INPUTS["debt_weight"]
+    * WACC_INPUTS["pre_tax_cost_of_debt"]
+    * (1 - WACC_INPUTS["tax_rate"])
+)
+
 # FY2025 amounts from Tesla's Form 10-K, filed January 29, 2026.  The balance
 # sheet is intentionally simplified but remains fully linked and balanced.
 OPENING = {
@@ -45,12 +76,16 @@ ASSUMPTIONS = {
     "other_liabilities_to_revenue": 46_565.0 / 94_827.0,
     "debt_rate": 0.040,
     "tax_rate": 1_423.0 / 5_278.0,
-    # September 30 WACC: 5.26% risk-free rate + 1.85 beta x 5.0% ERP gives a
-    # 14.51% cost of equity.  Combining that with a 4.0% pre-tax cost of debt,
-    # 27.0% tax rate, and market-value capital weights gives 14.4% WACC.
-    "wacc": 0.144,
+    # September 30 WACC: 5.29% risk-free rate + 1.85 beta x 5.0% ERP gives a
+    # 14.54% cost of equity.  Market-value weighting with 4.0% pre-tax cost of
+    # debt and 27.0% tax rate gives a 14.46% WACC.
+    "wacc": WACC_INPUTS["wacc"],
     "terminal_growth": 0.030,
     "diluted_shares": 3_528.0,
+    # Base bridge policy treats all unrestricted cash and short-term
+    # investments as non-operating. A USD 10bn operating-cash reserve is
+    # reported as a separate bridge sensitivity, not embedded in base value.
+    "operating_cash_reserve": 0.0,
 }
 
 
@@ -165,7 +200,11 @@ def dcf_value(projection, assumptions=ASSUMPTIONS):
     terminal_value = projection[-1]["fcff"] * (1 + terminal_growth) / (wacc - terminal_growth)
     pv_terminal = terminal_value / (1 + wacc) ** len(projection)
     enterprise_value = pv_fcff + pv_terminal
-    non_operating_cash = OPENING["cash"] + OPENING["short_term_investments"]
+    gross_liquidity = OPENING["cash"] + OPENING["short_term_investments"]
+    operating_cash_reserve = assumptions.get("operating_cash_reserve", 0.0)
+    if not 0 <= operating_cash_reserve <= gross_liquidity:
+        raise ValueError("Operating-cash reserve must be between zero and gross liquidity.")
+    non_operating_cash = gross_liquidity - operating_cash_reserve
     equity_value = enterprise_value + non_operating_cash - OPENING["debt_and_finance_leases"]
     return {
         "enterprise_value": enterprise_value,
@@ -173,6 +212,7 @@ def dcf_value(projection, assumptions=ASSUMPTIONS):
         "pv_terminal": pv_terminal,
         "terminal_value_share": pv_terminal / enterprise_value,
         "non_operating_cash": non_operating_cash,
+        "operating_cash_reserve": operating_cash_reserve,
         "debt_and_finance_leases": OPENING["debt_and_finance_leases"],
         "equity_value": equity_value,
         "per_share_value": equity_value / assumptions["diluted_shares"],
@@ -186,7 +226,11 @@ def reverse_dcf_terminal_growth(projection):
     close to WACC is a warning, not a plausible long-run forecast.
     """
     target_equity = MARKET_PRICE * ASSUMPTIONS["diluted_shares"]
-    target_enterprise = target_equity - (OPENING["cash"] + OPENING["short_term_investments"]) + OPENING["debt_and_finance_leases"]
+    target_enterprise = (
+        target_equity
+        - (OPENING["cash"] + OPENING["short_term_investments"] - ASSUMPTIONS["operating_cash_reserve"])
+        + OPENING["debt_and_finance_leases"]
+    )
     low, high = -0.05, ASSUMPTIONS["wacc"] - 0.0001
     for _ in range(200):
         midpoint = (low + high) / 2
@@ -200,9 +244,10 @@ def reverse_dcf_terminal_growth(projection):
     return (low + high) / 2
 
 
-def sensitivity(projection):
+def sensitivity(projection, assumptions=ASSUMPTIONS):
     """Return a WACC-terminal growth sensitivity and verify monotonicity."""
-    waccs = [0.134, 0.144, 0.154]
+    center_wacc = assumptions["wacc"]
+    waccs = [center_wacc - 0.010, center_wacc, center_wacc + 0.010]
     growths = [0.020, 0.030, 0.040]
     grid = {}
     for wacc in waccs:
@@ -266,12 +311,20 @@ def main():
     print(f"Terminal-value share: {value['terminal_value_share']:.1%}")
     grid = sensitivity(projection)
     print("\nPer-share sensitivity (WACC x terminal growth)")
-    for wacc in [0.134, 0.144, 0.154]:
+    for wacc in [ASSUMPTIONS["wacc"] - 0.010, ASSUMPTIONS["wacc"], ASSUMPTIONS["wacc"] + 0.010]:
         print(f"{wacc:.1%}: " + ", ".join(f"{grid[(wacc, growth)]:.2f}" for growth in [0.020, 0.030, 0.040]))
     print("Monotonicity checks: PASS")
     implied_growth = reverse_dcf_terminal_growth(projection)
     print(f"Market price on {VALUATION_DATE}: ${MARKET_PRICE:,.2f}")
     print(f"Reverse DCF implied terminal growth: {implied_growth:.2%}")
+    reserve_case = deepcopy(ASSUMPTIONS)
+    reserve_case["operating_cash_reserve"] = 10_000.0
+    reserve_value = dcf_value(projection, reserve_case)
+    print(
+        "Operating-cash reserve sensitivity: "
+        f"USD {reserve_case['operating_cash_reserve']:,.0f}m reserve -> "
+        f"${reserve_value['per_share_value']:,.2f} per share"
+    )
 
 
 if __name__ == "__main__":

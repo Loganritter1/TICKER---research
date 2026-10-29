@@ -30,7 +30,7 @@ On 5 October 2026, the app reproduced the required last known observations: BAA 
 
 ## Partner attack and response
 
-**Attack prompt — confirm this with your partner before submitting.** “I trust the publication-date field least: a daily observation date is not automatically an intraday tradable timestamp, so treating the yield as known at that day's market open could still leak information.”
+**Attack.** “I trust the publication-date field least: a daily observation date is not automatically an intraday tradable timestamp, so treating the yield as known at that day's market open could still leak information.”
 
 **Response.** The app's ALFRED download shows which dated observations were available by each decision date, and the “current values after that date” count makes the release lag visible. For Project 2, I will use DGS10 only as known by the prior completed decision date (or explicitly trade after its availability), not as a same-day opening signal.
 

@@ -1,129 +1,143 @@
-"""Lab 15: Streamlit interface for the portfolio stability decision."""
+"""Streamlit interface for the Lab 18 Legend Investor skill."""
 
-from copy import deepcopy
+from __future__ import annotations
 
+from pathlib import Path
+
+import pandas as pd
 import streamlit as st
 
-from portfolio import (
-    CORRELATIONS,
-    OBJECTIVE_RETURN,
-    SLEEVES,
-    estimate_from_prices,
-    expected_return,
-    lowest_risk_mix,
-    portfolio_volatility,
-    covariance_matrix,
-    reserve_eligible_weight,
+from edgar_buffett import METRICS, analyze_ticker, format_number
+from memo_validation import unsupported_numbers
+
+MEMO_DIR = Path(__file__).parent / "memos"
+
+
+def default_memo(report: dict) -> str:
+    """A constrained draft. The skill instructs the AI to revise only from this report."""
+    checks = report["checks"]
+    if "not known" in checks.values():
+        verdict = "Watch it"
+        rationale = "Important evidence is unavailable, so I cannot complete the owner-earnings judgment."
+    elif all(result == "pass" for result in checks.values()):
+        verdict = "Own the business"
+        rationale = "The five-year record clears each stated business-quality check."
+    else:
+        verdict = "Pass"
+        rationale = "The reported five-year record does not clear every stated business-quality check."
+    return f"# Buffett-style memo: {report['ticker']}\n\n**Verdict: {verdict}.** {rationale}\n\nThis memo evaluates the business, not its market price.\n"
+
+
+st.set_page_config(page_title="Legend Investor", layout="wide")
+st.markdown(
+    """
+    <style>
+      .stApp { background: #f8f7f2; color: #111111; }
+      .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4,
+      .stApp span, .stApp label, .stApp li, .stApp div { color: #111111; }
+      [data-testid="stSidebar"] { background: #eeeade; border-right: 1px solid #cfc8b7; }
+      [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+      [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p,
+      [data-testid="stSidebar"] label { color: #111111 !important; }
+      [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: #333333 !important; }
+      [data-testid="stSidebar"] input {
+        color: #111111 !important; background: #ffffff !important;
+        border-color: #aaa18e !important;
+      }
+      [data-testid="stSidebar"] button { color: #111111 !important; background: #e4c36a !important; border: 1px solid #8d6a12 !important; }
+      .hero { padding: 2.1rem 2.25rem; border-radius: 12px; color: #111111;
+              background: #ece4c8; border: 1px solid #c6b778; margin-bottom: 1.4rem; }
+      .hero h1 { margin: 0; font-size: 2.5rem; color: #111111 !important; }
+      .hero p { margin: .4rem 0 0; color: #111111 !important; font-size: 1.05rem; }
+      .eyebrow { color: #111111 !important; font-weight: 700; letter-spacing: .12em; font-size: .75rem; }
+      .verdict { padding: 1rem 1.2rem; border-radius: 10px; background: #ffffff;
+                 border: 1px solid #b9b19e; border-left: 6px solid #4b8065; font-size: 1.1rem; margin: .5rem 0 1.25rem; }
+      .check-pass, .check-fail, .check-unknown { color: #111111 !important; font-weight: 700; }
+      [data-testid="stMetric"] { background: #ffffff; border: 1px solid #d5d0c3; border-radius: 10px; padding: .55rem .75rem; }
+      [data-testid="stDataFrame"] { border: 1px solid #d5d0c3; border-radius: 10px; }
+      [data-testid="stTextArea"] textarea { color: #ffffff !important; background: #171717 !important;
+                                             border: 1px solid #171717 !important; font-family: Georgia, serif; }
+      [data-testid="stTextArea"] textarea::placeholder { color: #dedede !important; }
+    </style>
+    <div class="hero">
+      <div class="eyebrow">SEC EDGAR · 10-K ONLY · BUSINESS QUALITY</div>
+      <h1>Legend Investor</h1>
+      <p>Reproducible Buffett-style evidence, with calculations in code and judgment kept visible.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
-
-
-def metrics(weights, sleeves, correlations):
-    """Return the displayed portfolio metrics using portfolio.py calculations."""
-    covariance = covariance_matrix(sleeves, correlations)
-    return {
-        "return": expected_return(weights, sleeves),
-        "volatility": portfolio_volatility(weights, covariance),
-        "reserve": reserve_eligible_weight(weights, sleeves),
-    }
-
-
-def show_answer(title, weights, sleeves, correlations):
-    """Show an allocation and its calculated metrics, or the infeasible message."""
-    st.subheader(title)
-    if weights is None:
-        st.warning("No mix meets the objective.")
-        return
-
-    result = metrics(weights, sleeves, correlations)
-    st.dataframe(
-        {
-            "Asset": list(weights),
-            "Weight": [f"{weight:.0%}" for weight in weights.values()],
-        },
-        hide_index=True,
-        use_container_width=True,
-    )
-    first, second, third = st.columns(3)
-    first.metric("Expected return", f"{result['return']:.2%}")
-    second.metric("Volatility", f"{result['volatility']:.2%}")
-    third.metric("Reserve-eligible", f"{result['reserve']:.0%}")
-
-
-st.set_page_config(page_title="Portfolio Stability Decision", layout="wide")
-st.title("Portfolio Stability Decision")
-st.caption("Built with AI help, a learning demonstration, not investment advice.")
+st.caption("Data from SEC EDGAR; built with AI help, a learning demonstration, not investment advice.")
 
 with st.sidebar:
-    st.header("Mandate controls")
-    objective = st.number_input(
-        "Objective return estimate (%)", value=OBJECTIVE_RETURN * 100, step=0.1
-    ) / 100
-    reserve_minimum = st.number_input(
-        "Minimum reserve-eligible weight (%)", value=3.0, min_value=0.0, max_value=100.0, step=1.0
-    ) / 100
-    uploaded_file = st.file_uploader("Upload monthly prices.csv", type="csv")
-    last_36_months = st.toggle("Use last 36 monthly returns", value=False)
+    st.markdown("### Analyze a business")
+    st.caption("The SEC requires a User-Agent that identifies you. It is used for this request only.")
+    ticker = st.text_input("Ticker", "COST").strip().upper()
+    user_agent = st.text_input("SEC User-Agent (your name and email)", type="password", help="Used only for this request; it is not saved.")
+    run = st.button("Analyze 10-K data", type="primary")
 
-if uploaded_file is None:
-    source_name = "Meridian training inputs"
-    loaded_sleeves = deepcopy(SLEEVES)
-    loaded_correlations = deepcopy(CORRELATIONS)
-    active_sleeves = deepcopy(loaded_sleeves)
-    active_correlations = loaded_correlations
+if run:
+    if "@" not in user_agent:
+        st.error("Enter your name and email in the SEC User-Agent field before running.")
+    else:
+        try:
+            with st.spinner("Downloading 10-K facts from SEC EDGAR..."):
+                st.session_state.report = analyze_ticker(ticker, user_agent)
+                memo_path = MEMO_DIR / f"{ticker}_buffett_memo.md"
+                st.session_state.memo = memo_path.read_text(encoding="utf-8") if memo_path.exists() else default_memo(st.session_state.report)
+        except Exception as error:
+            st.error(f"EDGAR analysis failed: {error}")
+
+if "report" not in st.session_state:
+    st.info("Enter a ticker and SEC User-Agent, then select Analyze 10-K data.")
+    st.stop()
+
+report = st.session_state.report
+memo = st.session_state.memo
+frame = pd.DataFrame(report["rows"])
+chart_data = frame.set_index("Fiscal year end")[["Owner earnings", "Net income"]].apply(pd.to_numeric, errors="coerce")
+
+checks = report["checks"]
+if all(result == "pass" for result in checks.values()):
+    verdict, verdict_class = "OWN THE BUSINESS", "check-pass"
+elif "not known" in checks.values():
+    verdict, verdict_class = "WATCH — EVIDENCE GAP", "check-unknown"
 else:
-    try:
-        source_name = "Uploaded prices.csv"
-        uploaded_bytes = uploaded_file.getvalue()
-        loaded_sleeves, loaded_correlations = estimate_from_prices(uploaded_bytes)
-        if last_36_months:
-            active_sleeves, active_correlations = estimate_from_prices(
-                uploaded_bytes, last_36_months=True
-            )
-        else:
-            active_sleeves = deepcopy(loaded_sleeves)
-            active_correlations = loaded_correlations
-    except ValueError as error:
-        st.error(f"Could not estimate from this CSV: {error}")
-        st.stop()
+    verdict, verdict_class = "PASS — CHECK NOT CLEARED", "check-fail"
+st.markdown(f'<div class="verdict"><span class="{verdict_class}">{verdict}</span> &nbsp;·&nbsp; {report["ticker"]} | CIK {report["cik"]}</div>', unsafe_allow_html=True)
 
-st.write(f"**Data source:** {source_name}. Returns shown are historical estimates, not forecasts.")
-st.subheader("Editable inputs")
-st.caption("Edit an expected return estimate or reserve eligibility to test stability.")
+latest = report["rows"][-1]
+prior = report["rows"][0]
+metrics = st.columns(4)
+metrics[0].metric("Latest revenue", f"${format_number(latest['Revenue'])}M")
+metrics[1].metric("Latest net income", f"${format_number(latest['Net income'])}M")
+metrics[2].metric("Latest owner earnings", f"${format_number(latest['Owner earnings'])}M")
+metrics[3].metric("Latest ROE", format_number(latest["ROE"], "%"))
 
-input_columns = st.columns(2)
-for index, asset in enumerate(active_sleeves):
-    with input_columns[index % 2]:
-        active_sleeves[asset]["return"] = st.number_input(
-            f"{asset} expected return estimate (%)",
-            value=active_sleeves[asset]["return"] * 100,
-            step=0.1,
-            key=f"return_{source_name}_{last_36_months}_{asset}",
-        ) / 100
-        active_sleeves[asset]["reserve_eligible"] = st.checkbox(
-            f"{asset} is reserve-eligible",
-            value=active_sleeves[asset]["reserve_eligible"],
-            key=f"reserve_{source_name}_{last_36_months}_{asset}",
-        )
+left, right = st.columns([1.35, 1])
+with left:
+    st.subheader(f"{report['ticker']}: earnings trend")
+    st.caption("USD millions · fiscal year-end dates")
+    st.line_chart(chart_data, color=["#3e9368", "#e0a441"], height=330)
+with right:
+    st.subheader("Buffett checks")
+    for check, result in checks.items():
+        css = "check-pass" if result == "pass" else "check-fail" if result == "fail" else "check-unknown"
+        symbol = "✓" if result == "pass" else "!" if result == "not known" else "×"
+        st.markdown(f"<span class=\"{css}\">{symbol} {result.upper()}</span>  \\n+{check}", unsafe_allow_html=True)
+    st.caption(f"Owner earnings changed from {format_number(prior['Owner earnings'])}M to {format_number(latest['Owner earnings'])}M when both values are available.")
 
-baseline_sleeves = deepcopy(loaded_sleeves)
-for asset in baseline_sleeves:
-    baseline_sleeves[asset]["reserve_eligible"] = active_sleeves[asset]["reserve_eligible"]
+st.subheader("10-K table (USD millions)")
+display = frame.drop(columns="Tags")
+for metric in (*METRICS, "ROE", "Owner earnings"):
+    display[f"{metric} tag"] = [row["Tags"][metric] for row in report["rows"]]
+st.dataframe(display, use_container_width=True, hide_index=True)
 
-loaded_answer = lowest_risk_mix(
-    baseline_sleeves, loaded_correlations, objective, reserve_minimum
-)
-active_answer = lowest_risk_mix(
-    active_sleeves, active_correlations, objective, reserve_minimum
-)
-
-current, baseline = st.columns(2)
-with current:
-    show_answer("Lowest-risk mix with your current edits", active_answer, active_sleeves, active_correlations)
-with baseline:
-    show_answer("Answer for inputs as loaded", loaded_answer, baseline_sleeves, loaded_correlations)
-
-if active_answer is not None and loaded_answer is not None:
-    largest_change = max(
-        abs(active_answer[asset] - loaded_answer[asset]) for asset in active_answer
-    )
-    st.info(f"Largest weight change from the loaded answer: {largest_change:.0%} points.")
+st.subheader("Buffett-style memo")
+st.caption("Edit only with numbers printed by the calculator.")
+edited_memo = st.text_area("Memo text", memo, height=180)
+invalid = unsupported_numbers(edited_memo, report)
+if invalid:
+    st.error("Unsupported number(s): " + ", ".join(invalid) + ". They were not printed by the script.")
+else:
+    st.success("Every number in this memo was printed by the script.")

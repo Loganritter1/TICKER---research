@@ -5,6 +5,8 @@ from decimal import Decimal, InvalidOperation
 
 from edgar_buffett import METRICS, format_number
 
+CALCULATED_METRICS = ("ROE", "Owner earnings", "Current ratio", "Liabilities / equity")
+
 # Do not treat the filing label "10-K" as a financial claim in a memo.
 NUMBER_PATTERN = re.compile(r"(?<![\w.])-?\$?\d[\d,]*(?:\.\d+)?%?(?![\d,]*(?:\.\d+)?%?-K\b)")
 
@@ -22,9 +24,9 @@ def printed_numbers(report: dict) -> set[str]:
     for row in report["rows"]:
         for piece in row["Fiscal year end"].split("-"):
             allowed.add(normalized_number(piece))
-        for metric in (*METRICS, "ROE", "Owner earnings"):
+        for metric in (*METRICS, *CALCULATED_METRICS):
             allowed.add(normalized_number(format_number(row[metric], "%" if metric == "ROE" else "")))
-    allowed.add(normalized_number("15%"))
+    allowed.update({normalized_number("15%"), normalized_number("2")})
     return {value for value in allowed if value is not None}
 
 

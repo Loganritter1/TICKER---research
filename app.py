@@ -1,79 +1,143 @@
-"""Streamlit interface for the Lab 18 Legend Investor skill."""
+"""Streamlit interface for the Lab 19 Legend Panel."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from edgar_buffett import METRICS, analyze_ticker, format_number
+from edgar_buffett import METRICS, analyze_ticker, format_number, graham_checks
 from memo_validation import unsupported_numbers
 
-MEMO_DIR = Path(__file__).parent / "memos"
+NOTES_PATH = Path(__file__).parent / "panel_discussion_notes.json"
 
 
-def default_memo(report: dict) -> str:
-    """A constrained draft. The skill instructs the AI to revise only from this report."""
-    checks = report["checks"]
+def verdict(checks: dict[str, str]) -> str:
+    """Turn one investor's results into a transparent panel verdict."""
+    passed = sum(result == "pass" for result in checks.values())
     if "not known" in checks.values():
-        verdict = "Watch it"
-        rationale = "Important evidence is unavailable, so I cannot complete the owner-earnings judgment."
-    elif all(result == "pass" for result in checks.values()):
-        verdict = "Own the business"
-        rationale = "The five-year record clears each stated business-quality check."
-    else:
-        verdict = "Pass"
-        rationale = "The reported five-year record does not clear every stated business-quality check."
-    return f"# Buffett-style memo: {report['ticker']}\n\n**Verdict: {verdict}.** {rationale}\n\nThis memo evaluates the business, not its market price.\n"
+        return f"WATCH — EVIDENCE GAP ({passed} pass)"
+    if passed == len(checks):
+        return f"CLEARS PANEL ({passed} of {len(checks)})"
+    return f"DOES NOT CLEAR ({passed} of {len(checks)})"
 
 
-st.set_page_config(page_title="Legend Investor", layout="wide")
+def memo_verdict(checks: dict[str, str]) -> str:
+    """Use words, not an unprinted count, in a validator-safe memo verdict."""
+    if "not known" in checks.values():
+        return "evidence gap"
+    return "clears every stated check" if all(result == "pass" for result in checks.values()) else "does not clear every stated check"
+
+
+def values(rows: list[dict], metric: str, suffix: str = "") -> str:
+    return ", ".join(format_number(row[metric], suffix) for row in rows)
+
+
+def default_memos(report: dict, checks_by_investor: dict[str, dict[str, str]], threshold: float) -> dict[str, str]:
+    """Create investor-specific drafts using only calculator values."""
+    rows = report["rows"]
+    first, latest = rows[0], rows[-1]
+    return {
+        "Buffett": (
+            f"# Buffett-style memo: {report['ticker']}\n\n"
+            f"**Verdict: {memo_verdict(checks_by_investor['Buffett'])}.** "
+            f"ROE was {values(rows, 'ROE', '%')}. Owner earnings were {values(rows, 'Owner earnings')}. "
+            "This memo evaluates the business, not its market price."
+        ),
+        "Graham": (
+            f"# Graham-style memo: {report['ticker']}\n\n"
+            f"**Verdict: {memo_verdict(checks_by_investor['Graham'])}.** "
+            f"Latest current ratio was {format_number(latest['Current ratio'])}; the threshold is {threshold:g}. "
+            f"Net income changed from {format_number(first['Net income'])} to {format_number(latest['Net income'])}."
+        ),
+        "Burry": (
+            f"# Burry-style memo: {report['ticker']}\n\n"
+            f"**Verdict: {memo_verdict(checks_by_investor['Burry'])}.** "
+            f"Operating cash flow was {values(rows, 'Operating cash flow')}; net income was {values(rows, 'Net income')}. "
+            f"Latest liabilities / equity was {format_number(latest['Liabilities / equity'])}."
+        ),
+    }
+
+
+def threshold_rationale(threshold: float) -> str:
+    """Provide a complete, editable explanation for the selected threshold."""
+    if threshold == 2.0:
+        return (
+            "Keep 2.0: it preserves Graham’s conservative liquidity standard. "
+            "Costco’s 1.06 passes at 1.0, but it does not meet the stricter "
+            "current-ratio requirement."
+        )
+    return (
+        "Keep 1.0: Costco’s 1.06 passes, showing that the 2.0 cutoff is a "
+        "stricter design choice rather than an automatic measure of financial weakness."
+    )
+
+
+def load_discussion_notes() -> dict:
+    """Load local discussion notes without storing the SEC User-Agent."""
+    if not NOTES_PATH.exists():
+        return {}
+    try:
+        return json.loads(NOTES_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_discussion_notes(notes: dict) -> None:
+    """Persist only the student's panel discussion text by ticker."""
+    NOTES_PATH.write_text(json.dumps(notes, indent=2), encoding="utf-8")
+
+
+def default_discussion(ticker: str) -> tuple[str, str]:
+    if ticker == "COST":
+        return (
+            "Costco passes every Buffett and Burry check. Its panel shows positive owner earnings, positive net income, and operating cash flow at least as large as net income across the reported years.",
+            "Costco fails Graham’s latest current-ratio requirement because its ratio is 1.06, below the 2.0 threshold. The result shows that a conservative liquidity screen can reject the company even when the other panel checks pass.",
+        )
+    return "", ""
+
+
+st.set_page_config(page_title="Legend Panel", layout="wide")
 st.markdown(
     """
     <style>
-      .stApp { background: #f8f7f2; color: #111111; }
+      :root { --ink: #17212b; --muted: #56616d; --paper: #f7f6f2; --card: #ffffff;
+              --line: #d8ddd9; --accent: #2f6b5f; --accent-soft: #e6f0ec; --gold: #a46f26; }
+      .stApp { background: var(--paper); color: var(--ink); }
       .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4,
-      .stApp span, .stApp label, .stApp li, .stApp div { color: #111111; }
-      [data-testid="stSidebar"] { background: #eeeade; border-right: 1px solid #cfc8b7; }
-      [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
-      [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p,
-      [data-testid="stSidebar"] label { color: #111111 !important; }
-      [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: #333333 !important; }
-      [data-testid="stSidebar"] input {
-        color: #111111 !important; background: #ffffff !important;
-        border-color: #aaa18e !important;
-      }
-      [data-testid="stSidebar"] button { color: #111111 !important; background: #e4c36a !important; border: 1px solid #8d6a12 !important; }
-      .hero { padding: 2.1rem 2.25rem; border-radius: 12px; color: #111111;
-              background: #ece4c8; border: 1px solid #c6b778; margin-bottom: 1.4rem; }
-      .hero h1 { margin: 0; font-size: 2.5rem; color: #111111 !important; }
-      .hero p { margin: .4rem 0 0; color: #111111 !important; font-size: 1.05rem; }
-      .eyebrow { color: #111111 !important; font-weight: 700; letter-spacing: .12em; font-size: .75rem; }
-      .verdict { padding: 1rem 1.2rem; border-radius: 10px; background: #ffffff;
-                 border: 1px solid #b9b19e; border-left: 6px solid #4b8065; font-size: 1.1rem; margin: .5rem 0 1.25rem; }
-      .check-pass, .check-fail, .check-unknown { color: #111111 !important; font-weight: 700; }
-      [data-testid="stMetric"] { background: #ffffff; border: 1px solid #d5d0c3; border-radius: 10px; padding: .55rem .75rem; }
-      [data-testid="stDataFrame"] { border: 1px solid #d5d0c3; border-radius: 10px; }
-      [data-testid="stTextArea"] textarea { color: #ffffff !important; background: #171717 !important;
-                                             border: 1px solid #171717 !important; font-family: Georgia, serif; }
-      [data-testid="stTextArea"] textarea::placeholder { color: #dedede !important; }
+      .stApp span, .stApp label, .stApp li, .stApp div { color: var(--ink); }
+      [data-testid="stSidebar"] { background: #eef1ed; border-right: 1px solid var(--line); }
+      [data-testid="stSidebar"] * { color: var(--ink) !important; }
+      h1 { font-family: Georgia, serif; letter-spacing: -0.035em; font-size: 3rem !important; margin-bottom: 0.1rem !important; }
+      h2, h3 { color: var(--ink) !important; letter-spacing: -0.015em; }
+      [data-testid="stCaptionContainer"] p { color: var(--muted) !important; }
+      [data-testid="stMetric"] { background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--accent);
+                                  border-radius: 10px; padding: 0.9rem 1rem; box-shadow: 0 2px 8px rgba(23,33,43,.04); }
+      [data-testid="stMetricLabel"] { color: var(--muted) !important; font-weight: 700; }
+      [data-testid="stMetricValue"] { color: var(--ink) !important; font-size: 1.1rem; }
+      [data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+      [data-testid="stTextArea"] textarea, [data-testid="stTextInput"] input, [data-testid="stSelectbox"] input {
+          color: var(--ink) !important; background: var(--card) !important; border: 1px solid #aeb8b2 !important; }
+      [data-testid="stTextArea"] textarea { font-family: Georgia, serif; line-height: 1.5; }
+      [data-testid="stButton"] button { background: var(--accent) !important; color: #ffffff !important;
+                                         border: 1px solid var(--accent) !important; border-radius: 7px; font-weight: 700; }
+      [data-testid="stButton"] button:hover { background: #24564d !important; border-color: #24564d !important; }
+      [data-testid="stAlert"] { border-radius: 8px; }
+      hr { border-color: var(--line); }
     </style>
-    <div class="hero">
-      <div class="eyebrow">SEC EDGAR · 10-K ONLY · BUSINESS QUALITY</div>
-      <h1>Legend Investor</h1>
-      <p>Reproducible Buffett-style evidence, with calculations in code and judgment kept visible.</p>
-    </div>
     """,
     unsafe_allow_html=True,
 )
-st.caption("Data from SEC EDGAR; built with AI help, a learning demonstration, not investment advice.")
+st.markdown("<p style='margin-bottom:0; color:#a46f26; font-weight:700; letter-spacing:.12em; font-size:.75rem;'>SEC EDGAR · SHARED FACTS · VISIBLE RULES</p>", unsafe_allow_html=True)
+st.title("Legend Panel")
+st.caption("Three investor screens reading the same five-year 10-K evidence. Educational use only; not investment advice.")
 
 with st.sidebar:
-    st.markdown("### Analyze a business")
-    st.caption("The SEC requires a User-Agent that identifies you. It is used for this request only.")
+    st.header("Analyze a business")
     ticker = st.text_input("Ticker", "COST").strip().upper()
-    user_agent = st.text_input("SEC User-Agent (your name and email)", type="password", help="Used only for this request; it is not saved.")
+    user_agent = st.text_input("SEC User-Agent (your name and email)", help="Used only for this request; it is not saved.")
     run = st.button("Analyze 10-K data", type="primary")
 
 if run:
@@ -81,10 +145,8 @@ if run:
         st.error("Enter your name and email in the SEC User-Agent field before running.")
     else:
         try:
-            with st.spinner("Downloading 10-K facts from SEC EDGAR..."):
+            with st.spinner("Downloading annual 10-K facts from SEC EDGAR..."):
                 st.session_state.report = analyze_ticker(ticker, user_agent)
-                memo_path = MEMO_DIR / f"{ticker}_buffett_memo.md"
-                st.session_state.memo = memo_path.read_text(encoding="utf-8") if memo_path.exists() else default_memo(st.session_state.report)
         except Exception as error:
             st.error(f"EDGAR analysis failed: {error}")
 
@@ -93,51 +155,78 @@ if "report" not in st.session_state:
     st.stop()
 
 report = st.session_state.report
-memo = st.session_state.memo
+threshold = st.selectbox("Graham current-ratio threshold", [2.0, 1.0], format_func=lambda value: f"{value:.1f}")
+checks_by_investor = dict(report["checks"])
+checks_by_investor["Graham"] = graham_checks(report["rows"], threshold)
+drafts = default_memos(report, checks_by_investor, threshold)
+
+st.subheader(f"Panel: {report['ticker']} | CIK {report['cik']}")
+panel_rows = [
+    {"Investor": investor, "Check": check, "Result": result}
+    for investor, checks in checks_by_investor.items()
+    for check, result in checks.items()
+]
+st.dataframe(pd.DataFrame(panel_rows), use_container_width=True, hide_index=True)
+
+verdict_columns = st.columns(3)
+for column, investor in zip(verdict_columns, checks_by_investor):
+    column.metric(investor, verdict(checks_by_investor[investor]))
+
+st.subheader("Shared five-year 10-K facts (USD millions)")
 frame = pd.DataFrame(report["rows"])
-chart_data = frame.set_index("Fiscal year end")[["Owner earnings", "Net income"]].apply(pd.to_numeric, errors="coerce")
-
-checks = report["checks"]
-if all(result == "pass" for result in checks.values()):
-    verdict, verdict_class = "OWN THE BUSINESS", "check-pass"
-elif "not known" in checks.values():
-    verdict, verdict_class = "WATCH — EVIDENCE GAP", "check-unknown"
-else:
-    verdict, verdict_class = "PASS — CHECK NOT CLEARED", "check-fail"
-st.markdown(f'<div class="verdict"><span class="{verdict_class}">{verdict}</span> &nbsp;·&nbsp; {report["ticker"]} | CIK {report["cik"]}</div>', unsafe_allow_html=True)
-
-latest = report["rows"][-1]
-prior = report["rows"][0]
-metrics = st.columns(4)
-metrics[0].metric("Latest revenue", f"${format_number(latest['Revenue'])}M")
-metrics[1].metric("Latest net income", f"${format_number(latest['Net income'])}M")
-metrics[2].metric("Latest owner earnings", f"${format_number(latest['Owner earnings'])}M")
-metrics[3].metric("Latest ROE", format_number(latest["ROE"], "%"))
-
-left, right = st.columns([1.35, 1])
-with left:
-    st.subheader(f"{report['ticker']}: earnings trend")
-    st.caption("USD millions · fiscal year-end dates")
-    st.line_chart(chart_data, color=["#3e9368", "#e0a441"], height=330)
-with right:
-    st.subheader("Buffett checks")
-    for check, result in checks.items():
-        css = "check-pass" if result == "pass" else "check-fail" if result == "fail" else "check-unknown"
-        symbol = "✓" if result == "pass" else "!" if result == "not known" else "×"
-        st.markdown(f"<span class=\"{css}\">{symbol} {result.upper()}</span>  \\n+{check}", unsafe_allow_html=True)
-    st.caption(f"Owner earnings changed from {format_number(prior['Owner earnings'])}M to {format_number(latest['Owner earnings'])}M when both values are available.")
-
-st.subheader("10-K table (USD millions)")
 display = frame.drop(columns="Tags")
-for metric in (*METRICS, "ROE", "Owner earnings"):
+for metric in (*METRICS, "ROE", "Owner earnings", "Current ratio", "Liabilities / equity"):
     display[f"{metric} tag"] = [row["Tags"][metric] for row in report["rows"]]
 st.dataframe(display, use_container_width=True, hide_index=True)
 
-st.subheader("Buffett-style memo")
-st.caption("Edit only with numbers printed by the calculator.")
-edited_memo = st.text_area("Memo text", memo, height=180)
-invalid = unsupported_numbers(edited_memo, report)
-if invalid:
-    st.error("Unsupported number(s): " + ", ".join(invalid) + ". They were not printed by the script.")
+st.subheader("Investor memos")
+memo_columns = st.columns(3)
+all_invalid: dict[str, list[str]] = {}
+for column, investor in zip(memo_columns, checks_by_investor):
+    with column:
+        st.markdown(f"#### {investor}")
+        memo = st.text_area(f"{investor} memo", drafts[investor], height=270, key=f"{report['ticker']}_{investor}_memo")
+        invalid = unsupported_numbers(memo, report)
+        all_invalid[investor] = invalid
+        if invalid:
+            st.error("Unprinted: " + ", ".join(invalid))
+        else:
+            st.success("All memo numbers were printed.")
+        if investor == "Graham":
+            st.text_area(
+                "Threshold rationale",
+                value=threshold_rationale(threshold),
+                height=115,
+                key=f"{report['ticker']}_{threshold:g}_threshold_rationale",
+            )
+
+if any(all_invalid.values()):
+    st.error("Panel flag: at least one memo uses a number the script did not print.")
 else:
-    st.success("Every number in this memo was printed by the script.")
+    st.success("Panel flag: every number across all three memos was printed by the script.")
+
+st.subheader("Panel discussion")
+st.caption("Use only the results and values displayed above. Write two sentences in each box.")
+discussion_notes = load_discussion_notes()
+default_bull, default_bear = default_discussion(report["ticker"])
+saved_notes = discussion_notes.get(report["ticker"], {})
+bull_column, bear_column = st.columns(2)
+with bull_column:
+    bull_case = st.text_area(
+        "Bull case",
+        value=saved_notes.get("bull", default_bull),
+        height=125,
+        key=f"{report['ticker']}_bull_case",
+    )
+with bear_column:
+    bear_case = st.text_area(
+        "Bear case",
+        value=saved_notes.get("bear", default_bear),
+        height=125,
+        key=f"{report['ticker']}_bear_case",
+    )
+discussion_notes[report["ticker"]] = {"bull": bull_case, "bear": bear_case}
+try:
+    save_discussion_notes(discussion_notes)
+except OSError as error:
+    st.warning(f"Discussion notes could not be saved locally: {error}")

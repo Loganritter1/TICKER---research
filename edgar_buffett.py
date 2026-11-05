@@ -27,6 +27,9 @@ METRICS = {
     "Operating cash flow": (["NetCashProvidedByUsedInOperatingActivities"], "flow"),
     "Capital spending": (["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"], "flow"),
     "Equity": (["StockholdersEquity"], "instant"),
+    "AssetsCurrent": (["AssetsCurrent"], "instant"),
+    "LiabilitiesCurrent": (["LiabilitiesCurrent"], "instant"),
+    "Liabilities": (["Liabilities"], "instant"),
 }
 
 
@@ -130,6 +133,20 @@ def build_year_row(company_facts: dict[str, Any], fiscal_end: str) -> dict[str, 
         else NOT_FOUND
     )
     row["Tags"]["Owner earnings"] = "NetCashProvidedByUsedInOperatingActivities - capital spending tag"
+    assets_current, liabilities_current = row["AssetsCurrent"], row["LiabilitiesCurrent"]
+    row["Current ratio"] = (
+        round(assets_current / liabilities_current, 2)
+        if isinstance(assets_current, float) and isinstance(liabilities_current, float) and liabilities_current > 0
+        else NOT_KNOWN
+    )
+    row["Tags"]["Current ratio"] = "AssetsCurrent / LiabilitiesCurrent"
+    liabilities = row["Liabilities"]
+    row["Liabilities / equity"] = (
+        round(liabilities / equity, 2)
+        if isinstance(liabilities, float) and isinstance(equity, float) and equity > 0
+        else NOT_KNOWN
+    )
+    row["Tags"]["Liabilities / equity"] = "Liabilities / StockholdersEquity"
     return row
 
 
@@ -152,13 +169,52 @@ def buffett_checks(rows: list[dict[str, Any]]) -> dict[str, str]:
     }
 
 
+def graham_checks(rows: list[dict[str, Any]], current_ratio_threshold: float = 2.0) -> dict[str, str]:
+    """Apply Graham's stated checks; unavailable inputs remain not known."""
+    net_income = [row["Net income"] for row in rows]
+    latest_current_ratio = rows[-1]["Current ratio"]
+    growth = NOT_KNOWN
+    if all(isinstance(value, float) for value in net_income):
+        growth = "pass" if net_income[-1] > net_income[0] else "fail"
+    return {
+        f"Current ratio of {current_ratio_threshold:g} or more, latest year": (
+            "pass" if latest_current_ratio >= current_ratio_threshold else "fail"
+            if isinstance(latest_current_ratio, float) else NOT_KNOWN
+        ),
+        "Net income positive every year": all_check(net_income, lambda value: value > 0),
+        "Net income grew, first year to last": growth,
+    }
+
+
+def burry_checks(rows: list[dict[str, Any]]) -> dict[str, str]:
+    """Apply Burry's stated checks; unavailable inputs remain not known."""
+    cash_flow = [row["Operating cash flow"] for row in rows]
+    net_income = [row["Net income"] for row in rows]
+    latest_leverage = rows[-1]["Liabilities / equity"]
+    cash_flow_covers_income = NOT_KNOWN
+    if all(isinstance(cash, float) and isinstance(income, float) for cash, income in zip(cash_flow, net_income)):
+        cash_flow_covers_income = "pass" if all(cash >= income for cash, income in zip(cash_flow, net_income)) else "fail"
+    return {
+        "Operating cash flow at least net income every year": cash_flow_covers_income,
+        "Liabilities no more than twice equity, latest year": (
+            "pass" if latest_leverage <= 2 else "fail" if isinstance(latest_leverage, float) else NOT_KNOWN
+        ),
+    }
+
+
 def analyze_ticker(ticker: str, user_agent: str, ca_bundle: str | None = None) -> dict[str, Any]:
     cik = cik_for_ticker(ticker, user_agent, ca_bundle)
     facts = get_json(FACTS_URL.format(cik=cik), user_agent, ca_bundle)
     rows = [build_year_row(facts, end) for end in available_fiscal_ends(facts)]
     if len(rows) != 5:
         raise ValueError(f"SEC returned {len(rows)} usable annual 10-K periods; expected five.")
-    return {"ticker": ticker.upper(), "cik": f"{cik:010d}", "units": "USD millions", "rows": rows, "checks": buffett_checks(rows)}
+    return {
+        "ticker": ticker.upper(),
+        "cik": f"{cik:010d}",
+        "units": "USD millions",
+        "rows": rows,
+        "checks": {"Buffett": buffett_checks(rows), "Graham": graham_checks(rows), "Burry": burry_checks(rows)},
+    }
 
 
 def format_number(value: Any, suffix: str = "") -> str:
@@ -172,12 +228,13 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"{report['ticker']} | CIK {report['cik']} | USD millions")
     for row in report["rows"]:
         print(f"\nFY end {row['Fiscal year end']}")
-        for metric in (*METRICS, "ROE", "Owner earnings"):
+        for metric in (*METRICS, "ROE", "Owner earnings", "Current ratio", "Liabilities / equity"):
             suffix = "%" if metric == "ROE" else ""
             print(f"  {metric}: {format_number(row[metric], suffix)} [{row['Tags'][metric]}]")
-    print("\nBuffett checks")
-    for check, result in report["checks"].items():
-        print(f"  {check}: {result}")
+    for investor, checks in report["checks"].items():
+        print(f"\n{investor} checks")
+        for check, result in checks.items():
+            print(f"  {check}: {result}")
 
 
 def main() -> None:

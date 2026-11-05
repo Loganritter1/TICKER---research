@@ -1,0 +1,31 @@
+VIDEO 3 — INVESTMENT COMMITTEE PRESENTATION
+
+[Show: docs/decision-memo.md]
+
+My recommendation is to not initiate a Tesla position at the September 30, 2026 market price of 354 dollars and 81 cents per share. Tesla should remain on a watch list while the committee monitors operating evidence that could support a materially different valuation.
+
+This is not a prediction that Tesla cannot perform well as a business. It is a valuation and capital-allocation recommendation based on the evidence available at this date, the assumptions shown in the model, and the large gap between those results and the reference market price.
+
+The frozen valuation reference range is 19 dollars and 2 cents to 25 dollars and 43 cents per diluted share. The FCFF DCF base case is 21 dollars and 21 cents. The low and high DCF sensitivity points are 19 dollars and 2 cents and 24 dollars and 34 cents.
+
+[Show: output/freeze-2026-09-30.md]
+
+The DCF uses a 14.46 percent WACC and a 3 percent terminal growth rate. It produces 39.16 billion dollars of enterprise value. Adding 44.06 billion dollars of eligible cash and short-term investments and subtracting 8.38 billion dollars of debt and finance leases produces 74.84 billion dollars of equity value.
+
+I also tested the liquidity bridge. If 10 billion dollars is retained as operating cash rather than treated as excess liquidity, the DCF value falls to 18 dollars and 38 cents per share. This is a policy sensitivity, not a reported fact, and it makes the bridge judgment visible.
+
+That result gives the committee a practical sense of model uncertainty: even a reasonable change to the cash classification lowers the already conservative valuation outcome.
+
+[Show: docs/source-ledger.md and tsla_ev_comps.py]
+
+The qualified comparable evidence points in the same broad direction. Applying GM's automotive EV-to-revenue multiple implies 20 dollars and 38 cents per Tesla share. GM's GAAP P/E implies 25 dollars and 43 cents. I do not average these methods mechanically. GM is a useful manufacturing reference, but it differs materially from Tesla because it is more ICE-heavy, uses dealer distribution, and has GM Financial.
+
+The downside case is not only a lower multiple. Tesla has negative FCFF in FY2026 and FY2027 under the current capital-expenditure profile, and terminal value represents 99 percent of enterprise value. This means the valuation depends heavily on long-run execution beyond the explicit forecast.
+
+The key issue is therefore the burden of proof. At the current price, an investor needs sustained operating results that validate a much stronger long-run cash-flow profile than the model presently supports.
+
+The committee should reconsider only when evidence shows sustained positive FCFF, improved capital efficiency, durable automotive gross-margin expansion, or a source-supported case for energy, software, or autonomy cash flows that supports a valuation closer to the market price without relying on terminal growth near WACC.
+
+My committee ask is simple: do not open a new Tesla position at the September 30 price. Keep Tesla on the watch list, and require an updated, independently sourced valuation if those operating conditions materially change.
+
+Thank you.

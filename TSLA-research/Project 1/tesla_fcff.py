@@ -252,7 +252,7 @@ def sensitivity(projection, assumptions=ASSUMPTIONS):
     grid = {}
     for wacc in waccs:
         for growth in growths:
-            run_assumptions = deepcopy(ASSUMPTIONS)
+            run_assumptions = deepcopy(assumptions)
             run_assumptions["wacc"] = wacc
             run_assumptions["terminal_growth"] = growth
             grid[(wacc, growth)] = dcf_value(projection, run_assumptions)["per_share_value"]

@@ -1,0 +1,43 @@
+VIDEO 2 — CODEBASE AND VALIDATION WALKTHROUGH
+
+[Show: README.md]
+
+This is the Tesla corporate-finance application for FIN 43900. It is a locally runnable FCFF valuation model. The README identifies the main model, qualified comparable reference, validation tests, visible output, source ledger, and decision memo.
+
+The repository is organized so that the supporting evidence and the executable analysis can be reviewed separately. The frozen output folder also lets a reviewer inspect the final numbers without first installing or running the application.
+
+[Show: tesla_fcff.py]
+
+The primary model is tesla_fcff.py. It begins with the FY2025 filing-based opening balance sheet and operating assumptions. It then projects automotive, energy, and services revenue through FY2030.
+
+The model links revenue to gross profit, SG&A, research and development, EBIT, tax, net income, working capital, capital expenditures, cash, property plant and equipment, liabilities, and equity. Each forecast year has a balance-sheet assertion, so the model fails if assets do not equal liabilities plus equity.
+
+[Show: WACC_INPUTS and ASSUMPTIONS]
+
+The dated WACC inputs are frozen at the September 30, 2026 valuation date. The risk-free rate is 5.29 percent, beta is 1.85, the equity risk premium is 5 percent, pre-tax cost of debt is 4 percent, and the tax rate is 27 percent. These inputs produce a 14.46 percent WACC.
+
+[Show: dcf_value function]
+
+The DCF discounts FCFF at WACC, calculates a perpetuity-growth terminal value, and bridges enterprise value to equity value by adding eligible cash and short-term investments and deducting debt and finance leases. It uses 3.528 billion FY2025 diluted weighted-average shares as a consistent valuation convention.
+
+That separation is deliberate: enterprise value represents the operating business, while the bridge makes the cash and financing assumptions explicit before arriving at a value per share.
+
+[Run: python tesla_fcff.py]
+
+The current output shows enterprise value of 39.16 billion dollars, equity value of 74.84 billion dollars, and a base value of 21 dollars and 21 cents per diluted share. The WACC and terminal-growth sensitivity runs from 19.02 to 24.34 dollars per share. The reverse DCF says the market price would require roughly 14.06 percent terminal growth if the explicit cash flows and WACC remain fixed.
+
+The model also shows an operating-cash sensitivity. If 10 billion dollars is retained as operating cash rather than added to equity value, the result falls to 18 dollars and 38 cents per share.
+
+[Show: tsla_ev_comps.py]
+
+The comparable script provides a qualified GM reference. GM is not treated as a peer range because of its ICE-heavy portfolio, dealer model, and GM Financial business. It produces an EV-to-revenue reference of 20 dollars and 38 cents per Tesla share and a GAAP P/E reference of 25 dollars and 43 cents.
+
+[Show and run: python -m unittest discover -s tests -p "test_*.py" -v]
+
+There are six tests. They check the fixed base-case answer, three-statement articulation, DCF monotonicity, the enterprise-to-equity bridge, the locked changed-input result, and the operating-cash sensitivity. The highest-risk failure test deliberately sets terminal growth equal to WACC. The model must reject that invalid perpetuity-growth setup, and it does.
+
+This is important because a terminal-growth rate equal to or above WACC makes the perpetuity formula mathematically invalid. Rather than silently reporting a misleading number, the model fails loudly and identifies the faulty assumption.
+
+The central limitation is terminal-value dependence: terminal value is 99 percent of enterprise value. That is why the model is useful for a conditional decision, but should not be treated as a precise point estimate.
+
+Thank you.

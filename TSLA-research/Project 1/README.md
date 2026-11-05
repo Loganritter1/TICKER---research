@@ -4,37 +4,49 @@
 
 ## Decision
 
-This project supports a buy-side investment committee deciding whether to **initiate, watch/defer, or not initiate** a position in Tesla, Inc. (`TSLA`). The fund currently holds no position. The final recommendation will be a conditional valuation range with monitoring and reversal triggers, not a single target price.
+This project supports a buy-side investment committee deciding whether to **initiate, watch/defer, or not initiate** a position in Tesla, Inc. (`TSLA`). The fund currently holds no position. The frozen September 30, 2026 conclusion is to **not initiate at the reference price and retain TSLA on the watch list**. It is a conditional valuation range with monitoring and reversal triggers, not a single target price.
 
 ## Current build status
 
-The repository contains prior lab work on Tesla sources, comparable companies, a five-year pro forma, and sensitivity analysis. It is now being consolidated into the final required architecture:
+The final-project folder contains a frozen, locally runnable analysis with:
 
 - a five-year, linked three-statement projection;
 - an FCFF DCF using WACC and a stated terminal convention;
 - an enterprise-value-to-equity-value-to-per-share bridge;
 - an enterprise-value and an equity-value comparable multiple;
 - low/base/high and downside cases, sensitivity, and reverse-DCF evidence; and
-- reproducible validation, AI-use, and submission records.
+- reproducible validation, AI-use, and submission records; and
+- a bounded driver panel that lets a teammate explore scenarios without changing the locked accounting engine or source inputs.
 
-The final valuation date, currency, share-count basis, and explicit exclusions will be stated in the final decision memo and source ledger before the valuation is run.
+The valuation date is September 30, 2026; amounts are USD millions except per-share values and percentages; and the consistent share convention is 3,528 million FY2025 diluted weighted-average shares. The explicit bridge exclusions and valuation limitations are recorded in `docs/source-ledger.md` and `docs/freeze-2026-09-30.md`.
 
 ## Repository map
 
 | Location | Purpose |
 |---|---|
-| `tesla_proforma.py` | Existing lab-stage Tesla forecast model; to be refactored into the final FCFF engine. |
-| `tesla_fcff.py` | Final-project FCFF/WACC engine, currently in input-reconciliation stage. |
+| `tesla_fcff.py` | Frozen final-project FCFF/WACC engine, linked three-statement forecast, DCF, and enterprise-to-equity bridge. |
 | `tsla_ev_comps.py` | Qualified GM EV/revenue and P/E reference calculations using September 30 market prices. |
-| `tsla_pe_comps.py` | Existing lab-stage equity-multiple reference calculation. |
-| `asbury_pe_comps.py` | Training-case comparable-company calculator. |
-| `lab06.md`–`lab11.md` | Prior lab evidence and working notes. |
-| `sources.md` | Initial Tesla source list. |
+| `app.py` | Semi-adjustable Streamlit workbench with bounded driver controls and a visible checks panel. |
 | `docs/` | Final evidence, validation, decision, and recording records. |
-| `output/` | Committed visible executed output for a grader who does not run code. |
+| `output/` | Frozen visible executed output for a grader who does not run code. |
 | `tests/` | Final automated and reproducible validation checks. |
 
 ## Run status
+
+Launch the semi-adjustable workbench from this folder with:
+
+```powershell
+python -m streamlit run app.py
+```
+
+The workbench exposes bounded FY2027 operating drivers, WACC, terminal growth,
+and operating-cash treatment. It includes a base-case reset, five-year outputs,
+bridge, sensitivity table, and failing-loudly check panel. The accounting engine
+and dated source inputs remain locked in `tesla_fcff.py`.
+
+For the required failure demonstration, select **Diagnostic: inject invalid
+terminal value**. The locked engine rejects terminal growth equal to WACC; clear
+the diagnostic or select **Reset to frozen base case** to recover.
 
 Run the current FCFF engine from this folder with:
 
@@ -48,12 +60,12 @@ Run the reproducible validation suite with:
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-The current root-level scripts are lab-stage artifacts and are not the final integrated application. The FCFF engine's dated WACC and market-price inputs will be finalized only after their September 30, 2026 evidence is reconciled in the source ledger.
+The root-level lab scripts are supporting workpapers only; the final integrated application is self-contained in this folder. The dated WACC and market-price inputs were frozen and independently reconciled in `docs/freeze-2026-09-30.md`.
 
 ## Evidence and limitations
 
-Material facts, assumptions, transformations, source dates, and exclusions are tracked in [`docs/source-ledger.md`](docs/source-ledger.md). The current limitations and validation plan are recorded in [`docs/validation-and-ai-use.md`](docs/validation-and-ai-use.md).
+Material facts, assumptions, transformations, source dates, and exclusions are tracked in [`docs/source-ledger.md`](docs/source-ledger.md). The assumption challenges and one-at-a-time pro-forma sensitivity results are in [`docs/assumption-challenge-record.md`](docs/assumption-challenge-record.md). The current limitations and validation results are recorded in [`docs/validation-and-ai-use.md`](docs/validation-and-ai-use.md).
 
 ## Academic-integrity note
 
-The final project will disclose the AI tools used and retain independent source checks. The required Locked Changed-Input prediction is reserved for the student to author, without AI assistance, before the associated model run.
+The project discloses AI tools used and retains independent source checks. The Locked Changed-Input prediction was authored by the student without AI assistance before the associated run.

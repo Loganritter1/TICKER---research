@@ -6,7 +6,7 @@ This is the working source for the final frozen `Validation-and-AI-Use.pdf`. It 
 
 | Tool | Use | Output used as | Independent verification / disposition |
 |---|---|---|---|
-| Codex | Project structuring, code assistance, research leads, and explanatory support | Lead or draft only | To be completed with source and model checks |
+| Codex | Project structuring, code assistance, research leads, and explanatory support | Lead or draft only | Qualified. The September 30 risk-free-rate prompt/result was checked against the official Federal Reserve H.15 series; the preliminary 5.26% input was corrected to 5.29%, WACC recalculated to 14.46%, and all six model checks passed. |
 
 ## Required validation register
 
@@ -17,10 +17,10 @@ This is the working source for the final frozen `Validation-and-AI-Use.pdf`. It 
 | Three-statement articulation | Forecast integrity | Balance sheet balances; cash flow ties to cash; base year reconciles | `tests/test_tesla_fcff.py::test_three_statement_articulation_and_bridge` | Pass on 2026-10-08; each forecast-year gap = USD 0.00m | Complete |
 | DCF monotonicity | DCF logic | Value falls as WACC rises and rises as terminal growth rises | `tests/test_tesla_fcff.py::test_dcf_monotonicity` | Pass on 2026-10-08 | Complete |
 | Enterprise-to-equity bridge | Per-share result | Each adjustment is sourced and reconciles | `tests/test_tesla_fcff.py::test_three_statement_articulation_and_bridge`, `tests/test_tesla_fcff.py::test_operating_cash_reserve_bridge_sensitivity`, and `docs/freeze-2026-09-30.md` | Base bridge and USD 10bn operating-cash sensitivity reconcile | Complete |
-| Peer-policy consistency | Comparable valuation | Policy predates selection; all multiple definitions are consistent |  |  | Open |
+| Peer-policy consistency | Comparable valuation | Policy predates selection; all multiple definitions are consistent | `lab08.md`, `tsla_ev_comps.py`, and `docs/freeze-2026-09-30.md` | Pass on 2026-10-09. Lab 08 policy predates candidate selection; GM remains a qualified one-peer reference, Rivian is excluded from P/E for negative FY2025 GAAP EPS, and both EV/revenue and P/E retain matching value definitions and FY2025 inputs. | Complete |
 | Highest-risk failure test | Terminal-value construction | Model rejects terminal growth at or above WACC | `tests/test_tesla_fcff.py::test_highest_risk_terminal_value_failure_fails_loudly` | Pass on 2026-10-08; injected terminal growth = WACC raises `ValueError` | Complete |
 | Cold run | Reproducibility | Clean environment completes from documented instructions | `python tesla_fcff.py` and `python -m unittest discover -s tests -p "test_*.py" -v` | Local reproducibility run passes on 2026-10-08; no third-party packages required | Complete |
-| AI-output check | AI reliability | AI output accepted, corrected, qualified, or rejected with evidence |  |  | Open |
+| AI-output check | AI reliability | AI output accepted, corrected, qualified, or rejected with evidence | `docs/freeze-2026-09-30.md`, Federal Reserve H.15 source, and six passing tests | Completed on 2026-10-09. Codex-assisted dated-input reconciliation was **qualified and corrected**: official H.15 evidence changed the preliminary 5.26% risk-free rate to 5.29%; the model was rerun and all checks passed. AI-generated judgment was not accepted without cited evidence. | Complete |
 
 ## Locked Changed-Input Record — student-authored AI-off prediction required
 

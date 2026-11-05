@@ -1,0 +1,29 @@
+VIDEO 1 — RESEARCH EVOLUTION AND AI-OUTPUT CHECK
+
+[Show: docs/research-evolution.md]
+
+My final decision question is whether a buy-side investment committee should initiate a Tesla position at the September 30, 2026 valuation date. My conclusion is: do not initiate at the current price, but retain Tesla on a watch list.
+
+This video focuses on the research evolution and the evidence supporting the final conclusion.
+
+[Show: docs/freeze-2026-09-30.md]
+
+The most consequential change in the final work was freezing and checking the dated market inputs and the enterprise-to-equity bridge. The September 30 Tesla close was confirmed at 354 dollars and 81 cents. I also checked the risk-free rate against the Federal Reserve H.15 series. That check corrected a preliminary 5.26 percent input to 5.29 percent.
+
+That correction changed WACC to 14.46 percent and resulted in a base DCF value of 21 dollars and 21 cents per diluted share. It did not change the conclusion because the market price remains far above the valuation evidence.
+
+I also documented the enterprise-to-equity bridge rather than treating the DCF output as a share price automatically.
+
+[Show: docs/assumption-challenge-record.md, Cybercab scaling]
+
+Karim asked how scaling the Cybercab could affect Tesla and its value. That was a valid peer challenge: Cybercab could create automotive or services revenue, but it could also require substantial R&D, manufacturing, fleet deployment, and working-capital investment before producing positive FCFF.
+
+I did not assign Cybercab a separate value in the frozen base case because deployment timing, regulation, utilization, and unit economics are too uncertain for a defensible forecast. I accepted the challenge as a limitation and monitoring trigger. If credible evidence emerges, I would model it separately and test its effects on revenue, margins, and capital expenditures.
+
+[Show: docs/validation-and-ai-use.md, AI-use disclosure and AI-output check]
+
+I used Codex for project structure, code assistance, research leads, and explanatory drafts, but not as evidence. The AI-assisted input reconciliation was qualified and corrected using the official Federal Reserve source; I then reran the model and all six validation tests passed.
+
+The final limitation is terminal-value dependence: terminal value represents 99 percent of enterprise value. This is a conditional recommendation, not certainty that the market is wrong. Do not initiate until Tesla demonstrates durable cash generation, margins, and capital efficiency that support a value materially closer to the market price.
+
+Thank you.

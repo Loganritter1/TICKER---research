@@ -28,35 +28,6 @@
 
 ## 3. Locked Changed-Input Record — AI closed
 
-**Status: pending student AI-closed work.** Before running a new, untested changed-input scenario, the student must write the prediction below in their own words, commit and push this file, and only then run the scenario.
-
-| Required item | Student record |
-|---|---|
-| Load-bearing input | _To complete with AI closed._ |
-| Old value and units | _To complete with AI closed._ |
-| New value and units | _To complete with AI closed._ |
-| Expected direction of decision numbers | _To complete with AI closed._ |
-| Expected effect on the decision | _To complete with AI closed._ |
-| Pre-run commit hash and GitHub link | _Add after committing and pushing the prediction, before the run._ |
-| Before output | _To complete after the pre-run commit._ |
-| After output | _To complete after the run._ |
-| What happened and why | _To complete after the run._ |
-
-### Example format only — do not submit this as the AI-closed prediction
-
-Replace this example with your own AI-closed writing before the pre-run commit:
-
-| Required item | Example of the format |
-|---|---|
-| Load-bearing input | `Expected annual return estimate for [asset name]` |
-| Old value and units | `[old value]% per year` |
-| New value and units | `[new value]% per year` |
-| Expected direction of decision numbers | `I expect [allocation / expected return / volatility] to [increase or decrease] because [my reasoning].` |
-| Expected effect on the decision | `I expect the mandate verdict and recommendation to [stay the same / change] because [my reasoning].` |
-
-### AI-assisted draft — not a valid Locked Changed-Input prediction
-
-The app does not use an earnings control, so this draft treats “earnings” as an expected annual return estimate:
 
 | Required item | Draft record |
 |---|---|
